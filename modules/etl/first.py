@@ -1,5 +1,6 @@
+import json
 import requests
-import pyspark.pandas as ps
+#import pyspark.pandas as ps
 from modules.utils import range_de_hora
 from logging import info, error, basicConfig, INFO
 
@@ -7,7 +8,7 @@ from logging import info, error, basicConfig, INFO
 url = "http://127.0.0.1:5000/NewsApi/get_everything"
 basicConfig(level=INFO, format=f'[%(asctime)s] %(message)s',datefmt='%d/%m/%Y %H:%M:%S')
 
-def etl(query:str,languague:str):
+def bronze_step(query:str,languague:str):
     '''
     '''
     try:
@@ -15,10 +16,13 @@ def etl(query:str,languague:str):
         info("Extracting...")
         inicio,fim = range_de_hora()
         response = _extract(query=query,languague=languague,_from=inicio,_to=fim)
-        info("Transforming...")
-        transformed_response = _transform(response=response)
-        if transformed_response:
-            info("Saving...")
+        articles = response.get('articles')
+        
+        if len(articles) == 0:
+            info(f"Não há novos artigos no periodo de {inicio} a {fim}")
+        else:
+            with open(f'data/raw/{inicio} - {fim}.json','w') as file:
+                file.write(json.dumps(response,indent=1))
 
     except Exception as e:
         error(f"Erro ao executar a execução first: {e}")
@@ -50,12 +54,3 @@ def _extract(query:str,languague:str,_from:str,_to:str,page:int=None):
         error(f"Erro inesperado ao efetuar a requisção ao webhook: {e}")
         raise e
     
-def _transform(response:dict):
-    '''
-    '''
-    if len(response.get("articles")) == 0:
-        range = range_de_hora()
-        error(f"Não há artigos disponíveis entre {range[0]} e {range[1]}")
-        return None
-    
-    df = ps.DataFrame(response.get("articles"))
