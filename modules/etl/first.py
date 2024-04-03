@@ -1,6 +1,5 @@
 import json
 import requests
-#import pyspark.pandas as ps
 from modules.utils import range_de_hora
 from logging import info, error, basicConfig, INFO
 
@@ -21,6 +20,7 @@ def bronze_step(query:str,languague:str):
         if len(articles) == 0:
             info(f"Não há novos artigos no periodo de {inicio} a {fim}")
         else:
+            info("Saving response in data/raw")
             with open(f'data/raw/{inicio} - {fim}.json','w') as file:
                 file.write(json.dumps(response,indent=1))
 
