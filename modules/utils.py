@@ -49,12 +49,12 @@ def get_env_var(group: str, variable: str = None, default: str = None):
     else:
         return group_vars[group]
     
-def range_de_hora():
+def range_de_horarios():
     '''
     '''
     hora_atual = datetime.now()
 
-    inicio_ultima_hora = (hora_atual - timedelta(hours=1)).replace(minute=0)
-    fim_ultima_hora = inicio_ultima_hora + timedelta(hours=1)
+    inicio = hora_atual.replace(hour=0,minute=0,second=59)
+    fim = hora_atual.replace(hour=23,minute=59,second=59)
 
-    return (inicio_ultima_hora.strftime('%Y-%m-%dT%H:%M:%S'),fim_ultima_hora.strftime('%Y-%m-%dT%H:%M:%S'))
+    return (inicio,fim)
