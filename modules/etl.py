@@ -19,7 +19,9 @@ def landing_step(query:str,languague:str,inicio:str,fim:str=None):
 
         info("Verificando se é necessárioa mais de uma página")
         total_results = response.get('totalResults')
-        num_of_pages = (total_results // 100) + 1
+        #num_of_pages = (total_results // 100) + 1
+        num_of_pages = int(total_results/100) if total_results % 100 == 0 else int(total_results/100) + 1
+   
 
         if num_of_pages == 1:
         
@@ -183,7 +185,7 @@ def silver_step():
     if os.path.exists(data_silver_path):        
         df_parquet = pd.read_parquet(data_silver_path)
         df_silver = pd.concat([df_silver, df_parquet])
-
+        df_silver.drop_duplicates(inplace=True)
     # save
     df_silver.to_parquet(data_silver_path)
 
