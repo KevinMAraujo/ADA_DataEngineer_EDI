@@ -2,6 +2,7 @@ import os
 import json
 import requests
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from logging import info, error, basicConfig, INFO
 
@@ -144,7 +145,7 @@ def silver_step():
     None. O resultado é salvo em um arquivo parquet.
     '''
     bronze_path = "data/bronze"
-    data_silver_path = "../data/silver/silver.parquet"
+    data_silver_path = "data/silver/silver.parquet"
     
     # Lista todos os arquivos no diretório de bronze
     list_of_files = os.listdir(bronze_path)
@@ -164,14 +165,14 @@ def silver_step():
         df_silver = pd.read_parquet(latest_file_path)
     
     #Remove as linhas com noticias que possivelmente foram deletadas pelo author ou API
-    df_silver = df_silver.loc[df_latest['title'] != "[Removed]"]
+    df_silver = df_silver.loc[df_silver['title'] != "[Removed]"]
     
     #tratando a coluna 'author'
     authorNoneOrNull = (df_silver['author'].isna() ) 
     df_silver['author'][authorNoneOrNull] = 'Não Informado'
     
     #tratando a coluna de data de publicação. removendo o time
-    df_silver['publishedAt'] = pd.to_datetime(df_silver['publishedAt'], format='%Y-%m-%d')
+    df_silver['publishedAt'] = pd.to_datetime(df_silver['publishedAt'])
     df_silver['year'] = df_silver['publishedAt'].dt.year
     df_silver['month'] = df_silver['publishedAt'].dt.month
     df_silver['day'] = df_silver['publishedAt'].dt.day
@@ -180,7 +181,7 @@ def silver_step():
 
     
     
-    #tratando a coluna source. Redistribuindo os dados
+    #tratando a coluna source. Redistribuindo os dados (poderia usar json_normalize)
     df_silver['source_id'] = df_silver['source']
     df_silver['source_name'] = df_silver['source']
     
@@ -214,7 +215,7 @@ def gold_step():
     Retorna:
     None. O resultado é salvo em um arquivo parquet.
     '''
-    data_silver_path = "../data/silver/silver.parquet"
+    data_silver_path = "data/silver/silver.parquet"
 
     df_silver = pd.read_parquet(data_silver_path)
     df_gold = df_silver.copy()
@@ -225,28 +226,28 @@ def gold_step():
     df_aggregateByYear = df_gold.groupby(by=['year'], as_index=False, dropna=False)['content'].count()
     df_aggregateByYear = df_aggregateByYear.rename({'content':'number_articles'}, axis='columns')
     
-    aggregateByYear_path = "../data/gold/aggregateByYear.parquet"    
+    aggregateByYear_path = "data/gold/aggregateByYear.parquet"    
     df_aggregateByYear.to_parquet(aggregateByYear_path) # save
     
     #### 4.1.2 - Quantidade de notícias por mês de publicação;
     df_aggregateByMonth = df_gold.groupby(by=['month'], as_index=False, dropna=False)['content'].count()
     df_aggregateByMonth = df_aggregateByMonth.rename({'content':'number_articles'}, axis='columns')
     
-    aggregateByMonth_path = "../data/gold/aggregateByMonth.parquet"    
+    aggregateByMonth_path = "data/gold/aggregateByMonth.parquet"    
     df_aggregateByMonth.to_parquet(aggregateByMonth_path) # save
     
     #### 4.1.3 - Quantidade de notícias por mês de publicação;
     df_aggregateByDay = df_gold.groupby(by=['day'], as_index=False, dropna=False)['content'].count()
     df_aggregateByDay = df_aggregateByDay.rename({'content':'number_articles'}, axis='columns')
     
-    aggregateByDay_path = "../data/gold/aggregateByDay.parquet"    
+    aggregateByDay_path = "data/gold/aggregateByDay.parquet"    
     df_aggregateByDay.to_parquet(aggregateByDay_path) # save
     
     #### 4.1.4 - Quantidade de notícias por ano, mês e dia de publicação;
     df_aggregateByYearMonthDay = df_gold.groupby(by=['year', 'month','day'], as_index=False, dropna=False)['content'].count()
     df_aggregateByYearMonthDay = df_aggregateByYearMonthDay.rename({'content':'number_articles'}, axis='columns')
     
-    aggregateByYearMonthDay_path = "../data/gold/aggregateByYearMonthDay_path.parquet"    
+    aggregateByYearMonthDay_path = "data/gold/aggregateByYearMonthDay_path.parquet"    
     df_aggregateByYearMonthDay.to_parquet(aggregateByMonth_path) # save
     
     
@@ -256,14 +257,14 @@ def gold_step():
     df_aggregateBySource = df_gold.groupby(by=['source_name'], as_index=False, dropna=False)['content'].count()
     df_aggregateBySource = df_aggregateBySource.rename({'content':'number_articles'}, axis='columns')
     
-    aggregateBySource_path  = "../data/gold/aggregateBySource.parquet"    
+    aggregateBySource_path  = "data/gold/aggregateBySource.parquet"    
     df_aggregateBySource.to_parquet(aggregateBySource_path) # save 
 
     #### 4.2.2 - Quantidade de notícias por autor;
     df_aggregateByAuthor = df_gold.groupby(by=['author'], as_index=False, dropna=False)['content'].count()
     df_aggregateByAuthor = df_aggregateByAuthor.rename({'content':'number_articles'}, axis='columns')
     
-    aggregateByAuthor_path = "../data/gold/aggregateByAuthor.parquet"    
+    aggregateByAuthor_path = "data/gold/aggregateByAuthor.parquet"    
     df_aggregateByAuthor.to_parquet(aggregateByAuthor_path) # save
     
     #### 4.2.3 - Quantidade de notícias por fonte e autor;
@@ -271,7 +272,7 @@ def gold_step():
     df_aggregateBySourceAuthor = df_aggregateBySourceAuthor.rename({'content':'number_articles'}, axis='columns')
   
     
-    aggregateBySourceAuthor_path = "../data/gold/aggregateBySourceAuthor.parquet"    
+    aggregateBySourceAuthor_path = "data/gold/aggregateBySourceAuthor.parquet"    
     df_aggregateBySourceAuthor.to_parquet(aggregateBySourceAuthor_path) # save
     
     #### 4.3 - Quantidade de aparições de 3 palavras chaves por ano, mês e dia de publicação 
@@ -287,7 +288,7 @@ def gold_step():
     df_author = pd.DataFrame({'id_authors':id_authors, 'author':array_authors})
     df_gold = pd.merge(df_gold, df_author, on='author', how='left')
     
-    data_authors_path = "../data/gold/dim_author.parquet"    
+    data_authors_path = "data/gold/dim_author.parquet"    
     # save
     df_author.to_parquet(data_authors_path)
     '''Não verifico se o arquivo do authors ja existe porque sempre irei reescreve-lo. 
@@ -306,7 +307,7 @@ def gold_step():
 
     df_gold = pd.merge(df_gold, df_source, on='source_name', how='left')
     
-    data_source_path = "../data/gold/dim_source.parquet"    
+    data_source_path = "data/gold/dim_source.parquet"    
     # save
     df_source.to_parquet(data_source_path)
     '''Não verifico se o arquivo do source ja existe porque sempre irei reescreve-lo. 
@@ -321,6 +322,6 @@ def gold_step():
     for i in drop_columns:
         if i in df_articles.columns:
             df_articles.drop(columns=[i], inplace=True)
-    data_articles_path = "../data/gold/articles.parquet"        
+    data_articles_path = "data/gold/articles.parquet"        
     df_articles.to_parquet(data_articles_path)
     
