@@ -205,14 +205,37 @@ def gold_step():
     df_silver = pd.read_parquet(data_silver_path)
     df_gold = df_silver.copy()
     
-    
-    
+        
     #### 4.1 - Quantidade de notícias por ano, mês e dia de publicação;
+    #### 4.1.1 - Quantidade de notícias por ano, mês e dia de publicação;
     df_aggregateByYear = df_gold.groupby(by=['year'], as_index=False, dropna=False)['content'].count()
     df_aggregateByYear = df_aggregateByYear.rename({'content':'number_articles'}, axis='columns')
     
     aggregateByYear_path = "../data/gold/aggregateByYear.parquet"    
     df_aggregateByYear.to_parquet(aggregateByYear_path) # save
+    
+    #### 4.1.2 - Quantidade de notícias por mês de publicação;
+    df_aggregateByMonth = df_gold.groupby(by=['month'], as_index=False, dropna=False)['content'].count()
+    df_aggregateByMonth = df_aggregateByMonth.rename({'content':'number_articles'}, axis='columns')
+    
+    aggregateByMonth_path = "../data/gold/aggregateByMonth.parquet"    
+    df_aggregateByMonth.to_parquet(aggregateByMonth_path) # save
+    
+    #### 4.1.3 - Quantidade de notícias por mês de publicação;
+    df_aggregateByDay = df_gold.groupby(by=['day'], as_index=False, dropna=False)['content'].count()
+    df_aggregateByDay = df_aggregateByDay.rename({'content':'number_articles'}, axis='columns')
+    
+    aggregateByDay_path = "../data/gold/aggregateByDay.parquet"    
+    df_aggregateByDay.to_parquet(aggregateByDay_path) # save
+    
+    #### 4.1.4 - Quantidade de notícias por ano, mês e dia de publicação;
+    df_aggregateByYearMonthDay = df_gold.groupby(by=['year', 'month','day'], as_index=False, dropna=False)['content'].count()
+    df_aggregateByYearMonthDay = df_aggregateByYearMonthDay.rename({'content':'number_articles'}, axis='columns')
+    
+    aggregateByYearMonthDay_path = "../data/gold/aggregateByYearMonthDay_path.parquet"    
+    df_aggregateByYearMonthDay.to_parquet(aggregateByMonth_path) # save
+    
+    
     
     #### 4.2 - Quantidade de notícias por fonte e autor;
     #### 4.2.1 - Quantidade de notícias por fonte;
@@ -232,7 +255,7 @@ def gold_step():
     #### 4.2.3 - Quantidade de notícias por fonte e autor;
     df_aggregateBySourceAuthor = df_gold.groupby(by=['source_name','author'], as_index=False, dropna=False)['content'].count()
     df_aggregateBySourceAuthor = df_aggregateBySourceAuthor.rename({'content':'number_articles'}, axis='columns')
-    df_aggregateBySourceAuthor.head()   
+  
     
     aggregateBySourceAuthor_path = "../data/gold/aggregateBySourceAuthor.parquet"    
     df_aggregateBySourceAuthor.to_parquet(aggregateBySourceAuthor_path) # save
@@ -240,6 +263,7 @@ def gold_step():
     #### 4.3 - Quantidade de aparições de 3 palavras chaves por ano, mês e dia de publicação 
     # (as 3 palavras chaves serão as mesmas usadas para fazer os filtros de relevância do item 2 
     # (2. Definir Critérios de Relevância))
+    
       
     
     # Criaçãos de Dimensões    
