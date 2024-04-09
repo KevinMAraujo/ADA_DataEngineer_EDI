@@ -11,10 +11,20 @@ url = "http://127.0.0.1:5000/NewsApi/get_everything"
 basicConfig(level=INFO, format=f'[%(asctime)s] %(message)s',datefmt='%d/%m/%Y %H:%M:%S')
 
 def landing_step(query:str,languague:str,inicio:str,fim:str=None):
-    '''
-    '''
+    """
+    Função que extrai e salva em arquivos JSON informações de um texto usando uma API de extração de texto.
+
+    Argumentos:
+        query (str): O texto a ser extraído.
+        language (str): O idioma do texto.
+        inicio (str): Data inicial para a busca (formato YYYY-MM-DDTHH:MM:SS).
+        fim (str, opcional): Data final para a busca (formato YYYY-MM-DDTHH:MM:SS).
+
+    Exceções:
+        Exception: Erro inesperado durante a execução da função.
+    """
     try:
-        info("FIRST STEP (FOR EACH 1 HOUR)")
+        info("## LANDING STEP ##")
         info("Extracting...")
         response = _extract(query=query,languague=languague,_from=inicio,_to=fim)
 
@@ -63,11 +73,12 @@ def bronze_step():
     None. O resultado é salvo em um arquivo parquet.
     '''
 
+    info("## BRONZE STEP ##")
     ## Extract
     data_raw_path = "data/raw"
     info("Listando os jsons que estão no diretório data/raw")
     list_of_json_paths = [os.path.join(data_raw_path,json_file) for json_file in os.listdir(data_raw_path)]
-    info("Verificando se o diretório data/aw está vazio")
+    info("Verificando se o diretório data/raw está vazio")
     if len(list_of_json_paths) != 0:
         
         info("Criando uma lsita de objetos json")
@@ -98,8 +109,24 @@ def bronze_step():
 
 
 def _extract(query:str,languague:str,_from:str,_to:str,page:int=None,pageSize:int=100):
-    '''
-    '''
+    """
+    Função que extrai informações de um texto usando uma API de extração de texto.
+
+    Argumentos:
+        query (str): O texto a ser extraído.
+        language (str): O idioma do texto.
+        _from (str): Data inicial para a busca (formato YYYY-MM-DDTHH:MM:SS).
+        _to (str): Data final para a busca (formato YYYY-MM-DDTHH:MM:SS).
+        page (int, opcional): Número da página a ser retornada (padrão: 1).
+        pageSize (int, opcional): Tamanho da página (padrão: 100).
+
+    Retorno:
+        dict: Dicionário contendo as informações extraídas do texto.
+
+    Exceções:
+        requests.RequestException: Erro ao executar a requisição HTTP.
+        Exception: Erro inesperado durante a execução da função.
+    """
     info("Construindo os dados a serem enviados na requisição")
     data = {
         "q":query,
@@ -135,15 +162,26 @@ def save_json_response(inicio, fim, response, path:str):
             file.write(json.dumps(response,indent=1))
 
 def silver_step():
-    '''
-    A função `silver_step` é responsável por ...
+    """
+    A função `silver_step` é responsável por realizar o processamento e limpeza dos dados de notícias coletados na etapa anterior (bronze_step).
 
     Etapas:
-    ...
+    1. Carrega o arquivo parquet mais recente do diretório de bronze.
+    2. Remove as notícias com título "[Removed]" (possivelmente deletadas).
+    3. Preenche valores ausentes na coluna "author" com "Não Informado".
+    4. Trata a coluna "publishedAt":
+      - Converte para datetime.
+      - Extrai ano, mês e dia.
+      - Remove a informação de hora.
+    5. Redistribui dados da coluna "source" em "source_id" e "source_name".
+    6. Remove a coluna "source".
+    7. Verifica se já existe um arquivo silver:
+      - Se sim, carrega o arquivo anterior, concatena com o novo DataFrame e remove duplicados.
+    8. Salva o DataFrame final como um arquivo parquet no diretório de silver.
 
     Retorna:
     None. O resultado é salvo em um arquivo parquet.
-    '''
+    """
     bronze_path = "data/bronze"
     data_silver_path = "data/silver/silver.parquet"
     
@@ -206,15 +244,29 @@ def silver_step():
 
 
 def gold_step():
-    '''
-    A função `gold_step` é responsável por ...
+    """
+    A função `gold_step` é responsável por gerar as métricas finais a partir dos dados processados na etapa silver.
 
     Etapas:
-    ...
+    1. Carrega o arquivo parquet mais recente do diretório de silver.
+    2. Cria as seguintes métricas:
+        - **4.1 - Quantidade de notícias por ano, mês e dia de publicação:**
+            - 4.1.1 - Quantidade de notícias por ano (agrupado por ano).
+            - 4.1.2 - Quantidade de notícias por mês (agrupado por mês).
+            - 4.1.3 - Quantidade de notícias por dia (agrupado por dia).
+            - 4.1.4 - Quantidade de notícias por ano, mês e dia (agrupado por ano, mês e dia).
+        - **4.2 - Quantidade de notícias por fonte e autor:**
+            - 4.2.1 - Quantidade de notícias por fonte (agrupado por fonte).
+            - 4.2.2 - Quantidade de notícias por autor (agrupado por autor).
+            - 4.2.3 - Quantidade de notícias por fonte e autor (agrupado por fonte e autor).
+        - **4.3 - Quantidade de aparições de 3 palavras chaves por ano, mês e dia de publicação:**
+            - **(Ainda não implementado)**
+    3. Salva cada métrica em um arquivo parquet separado no diretório de gold.
+    4. Cria as dimensões `author` e `source` (tabelas de referência) e as salva em arquivos parquet separados.
 
     Retorna:
-    None. O resultado é salvo em um arquivo parquet.
-    '''
+    None. O resultado é salvo em arquivos parquet.
+    """
     data_silver_path = "data/silver/silver.parquet"
 
     df_silver = pd.read_parquet(data_silver_path)
