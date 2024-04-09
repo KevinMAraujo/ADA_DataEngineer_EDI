@@ -93,6 +93,9 @@ def bronze_step():
         info("Transformando em dataframes")
         list_of_dataframes = [pd.DataFrame(articles) for articles in list_of_articles]
 
+        # Fechando os objetos de arquivo e armazenando os resultados
+        close_obj = [json_obj.close() for json_obj in list_of_json_obj] 
+
         # Transform
         info("Concatenando os dataframes")
         df_concatened = pd.concat(list_of_dataframes)
@@ -106,6 +109,10 @@ def bronze_step():
         info("Criando o arquivo Bronze Diário")
         # Load
         df_concatened.to_parquet(f"data/bronze/{datetime.now().date()}.parquet")
+
+    # Deleta cada arquivo na lista e deleta
+    for file_path in list_of_json_paths:
+        os.remove(file_path)       
 
 
 def _extract(query:str,languague:str,_from:str,_to:str,page:int=None,pageSize:int=100):
@@ -377,3 +384,29 @@ def gold_step():
     data_articles_path = "data/gold/articles.parquet"        
     df_articles.to_parquet(data_articles_path)
     
+
+    # Quais as palavras mais recorrentes em todas as matérias
+
+
+# função criada para saber quais as palavras mais presentes
+def contagem_palavras():
+    df = pd.read_parquet("data/silver/silver.parquet")
+
+    # Trabalhar com a coluna "description"
+    descriptions = df["description"]
+
+    # Separar cada descrição em palavras e expandir para várias colunas
+    split_descriptions = descriptions.str.split(expand=True)
+
+    # Converter todas as colunas em uma única coluna (uma longa Series)
+    coluna_unica = split_descriptions.stack()
+
+    # Filtrar palavras com mais de 3 letras
+    coluna_unica_filtrada = coluna_unica[coluna_unica.str.len() > 4]
+
+    # Contar a frequência das palavras após a filtragem
+    contagem_palavras = coluna_unica_filtrada.value_counts().reset_index()
+    contagem_palavras.columns = ['Palavra', 'Quantidade']
+
+    return contagem_palavras
+
