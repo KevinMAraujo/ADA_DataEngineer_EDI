@@ -13,7 +13,7 @@ def landing_step(query:str,languague:str,inicio:str,fim:str=None):
     '''
     '''
     try:
-        info("FIST STEP (FOR EACH 1 HOUR)")
+        info("FIRST STEP (FOR EACH 1 HOUR)")
         info("Extracting...")
         response = _extract(query=query,languague=languague,_from=inicio,_to=fim)
 
@@ -132,3 +132,155 @@ def save_json_response(inicio, fim, response, path:str):
         info("Saving response in data/raw")
         with open(path,'w') as file:
             file.write(json.dumps(response,indent=1))
+
+def silver_step():
+    '''
+    A função `silver_step` é responsável por ...
+
+    Etapas:
+    ...
+
+    Retorna:
+    None. O resultado é salvo em um arquivo parquet.
+    '''
+    data_bronze_path = "../data/processed/bronze.parquet"
+    data_silver_path = "../data/silver/silver.parquet"
+    
+    df_bronze = pd.read_parquet(data_bronze_path)
+    df_silver = df_bronze.copy()
+    
+    
+    #tratando a coluna 'author'
+    authorNoneOrNull = (df_silver['author'].isna() ) 
+    df_silver['author'][authorNoneOrNull] = 'Não Informado'
+    
+    #tratando a coluna de data de publicação. removendo o time
+    df_silver['publishedAt'] = pd.to_datetime(df_silver['publishedAt'], format='%Y-%m-%d')
+    df_silver['year'] = df_silver['publishedAt'].dt.year
+    df_silver['month'] = df_silver['publishedAt'].dt.month
+    df_silver['day'] = df_silver['publishedAt'].dt.day
+    
+    df_silver['publishedAt'] = df_silver['publishedAt'].dt.date
+   
+    
+    
+    #tratando a coluna source. Redistribuindo os dados
+    df_silver['source_id'] = df_silver['source']
+    df_silver['source_name'] = df_silver['source']
+    
+    for i in range(0, len(df_silver['author'])):
+        df_silver['source_id'].iloc[i] = df_silver['source'].iloc[i]['id']
+        df_silver['source_name'].iloc[i] = df_silver['source'].iloc[i]['name']
+        
+    #remover colunas
+    delete_columns = ['source']
+    df_silver.drop(columns = delete_columns, inplace=True)
+    
+    
+    
+    info("Verificando se já tem um arquivo silver")
+    
+    if os.path.exists(data_silver_path):        
+        df_parquet = pd.read_parquet(data_silver_path)
+        df_silver = pd.concat([df_silver, df_parquet])
+
+    # save
+    df_silver.to_parquet(data_silver_path)
+
+
+def gold_step():
+    '''
+    A função `gold_step` é responsável por ...
+
+    Etapas:
+    ...
+
+    Retorna:
+    None. O resultado é salvo em um arquivo parquet.
+    '''
+    data_silver_path = "../data/silver/silver.parquet"
+
+    df_silver = pd.read_parquet(data_silver_path)
+    df_gold = df_silver.copy()
+    
+    
+    
+    #### 4.1 - Quantidade de notícias por ano, mês e dia de publicação;
+    df_aggregateByYear = df_gold.groupby(by=['year'], as_index=False, dropna=False)['content'].count()
+    df_aggregateByYear = df_aggregateByYear.rename({'content':'number_articles'}, axis='columns')
+    
+    aggregateByYear_path = "../data/gold/aggregateByYear.parquet"    
+    df_aggregateByYear.to_parquet(aggregateByYear_path) # save
+    
+    #### 4.2 - Quantidade de notícias por fonte e autor;
+    #### 4.2.1 - Quantidade de notícias por fonte;
+    df_aggregateBySource = df_gold.groupby(by=['source_name'], as_index=False, dropna=False)['content'].count()
+    df_aggregateBySource = df_aggregateBySource.rename({'content':'number_articles'}, axis='columns')
+    
+    aggregateBySource_path  = "../data/gold/aggregateBySource.parquet"    
+    df_aggregateBySource.to_parquet(aggregateBySource_path) # save 
+
+    #### 4.2.2 - Quantidade de notícias por autor;
+    df_aggregateByAuthor = df_gold.groupby(by=['author'], as_index=False, dropna=False)['content'].count()
+    df_aggregateByAuthor = df_aggregateByAuthor.rename({'content':'number_articles'}, axis='columns')
+    
+    aggregateByAuthor_path = "../data/gold/aggregateByAuthor.parquet"    
+    df_aggregateByAuthor.to_parquet(aggregateByAuthor_path) # save
+    
+    #### 4.2.3 - Quantidade de notícias por fonte e autor;
+    df_aggregateBySourceAuthor = df_gold.groupby(by=['source_name','author'], as_index=False, dropna=False)['content'].count()
+    df_aggregateBySourceAuthor = df_aggregateBySourceAuthor.rename({'content':'number_articles'}, axis='columns')
+    df_aggregateBySourceAuthor.head()   
+    
+    aggregateBySourceAuthor_path = "../data/gold/aggregateBySourceAuthor.parquet"    
+    df_aggregateBySourceAuthor.to_parquet(aggregateBySourceAuthor_path) # save
+    
+    #### 4.3 - Quantidade de aparições de 3 palavras chaves por ano, mês e dia de publicação 
+    # (as 3 palavras chaves serão as mesmas usadas para fazer os filtros de relevância do item 2 
+    # (2. Definir Critérios de Relevância))
+      
+    
+    # Criaçãos de Dimensões    
+    # Criando dimensao Author
+    array_authors = df_gold['author'].unique()
+    id_authors = np.array(range(len(array_authors)))
+    df_author = pd.DataFrame({'id_authors':id_authors, 'author':array_authors})
+    df_gold = pd.merge(df_gold, df_author, on='author', how='left')
+    
+    data_authors_path = "../data/gold/dim_author.parquet"    
+    # save
+    df_author.to_parquet(data_authors_path)
+    '''Não verifico se o arquivo do authors ja existe porque sempre irei reescreve-lo. 
+    Como ele tem um identificador que é criando dependendendo do dados do df silver, então o identificador por mudar.
+    Pra evitar isso sempre reescrevemos o valor do id. 
+    Porém isso pode gerar problemas na camada de visualização no momento da criação de métricas ous filtros que utilizam
+    o identificador do author    
+    '''
+    
+    
+    # Criando dataframe Source
+    array_source_name = df_gold['source_name'].unique()
+    id_source = np.array(range(len(array_source_name)))
+    df_source = pd.DataFrame({'source_id':id_source, 'source_name':array_source_name})
+    df_gold.drop(columns=['source_id'], inplace=True)
+
+    df_gold = pd.merge(df_gold, df_source, on='source_name', how='left')
+    
+    data_source_path = "../data/gold/dim_source.parquet"    
+    # save
+    df_source.to_parquet(data_source_path)
+    '''Não verifico se o arquivo do source ja existe porque sempre irei reescreve-lo. 
+    Como ele tem um identificador que é criando dependendendo do dados do df silver, então o identificador por mudar.
+    Pra evitar isso sempre reescrevemos o valor do id. 
+    Porém isso pode gerar problemas na camada de visualização no momento da criação de métricas ous filtros que utilizam
+    o identificador do author        
+    '''
+    
+    df_articles = df_gold.copy()
+    drop_columns = ['author','source_name']
+    for i in drop_columns:
+        if i in df_articles.columns:
+            df_articles.drop(columns=[i], inplace=True)
+    data_articles_path = "../data/gold/articles.parquet"        
+    df_articles.to_parquet(data_articles_path)
+    
