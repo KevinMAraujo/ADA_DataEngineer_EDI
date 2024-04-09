@@ -7,7 +7,7 @@ basicConfig(level=INFO, format=f'[%(asctime)s] %(message)s',datefmt='%d/%m/%Y %H
 def prepare_data_filesystem():
     '''
     '''
-    list_of_path = ['data/raw','data/processed']
+    list_of_path = ['data/raw','data/bronze','data/silver','data/gold']
     for path in list_of_path:
         try:
             info(f"Tentando criar o diretório {path}.")
@@ -58,3 +58,13 @@ def range_de_horarios():
     fim = hora_atual.replace(hour=23,minute=59,second=59)
 
     return (inicio,fim)
+
+def range_de_hora_passado():
+    '''
+    '''
+    dia_atual = datetime.now()
+    dia_anterior = dia_atual - timedelta(days=1)
+    inicio_ultima_hora = (dia_anterior - timedelta(hours=1))
+    fim_ultima_hora = inicio_ultima_hora + timedelta(hours=1)
+
+    return (inicio_ultima_hora.strftime('%Y-%m-%dT%H:%M:%S'),fim_ultima_hora.strftime('%Y-%m-%dT%H:%M:%S'))
