@@ -82,20 +82,18 @@ def bronze_step():
         list_of_dataframes = [pd.DataFrame(articles) for articles in list_of_articles]
 
         # Transform
-        info("COncatenando os dataframes")
+        info("Concatenando os dataframes")
         df_concatened = pd.concat(list_of_dataframes)
         
         info("Inserindo a colunad 'load_date'")
         df_concatened['load_date'] = datetime.now().date()
+        
+        info("Removendo valores iguais para o bronze ter apenas noticias diferentes")
+        df_concatened = df_concatened.drop_duplicates(subset=['title', 'publishedAt'])
 
-        info("Verificando se já tem um arquivo bronze")
-        bronze_parquet_path = "data/processed/bronze.parquet"
-        if os.path.exists(bronze_parquet_path):
-            df_parquet = pd.read_parquet(bronze_parquet_path)
-            df_concatened = pd.concat([df_concatened,df_parquet])
-
+        info("Criando o arquivo Bronze Diário")
         # Load
-        df_concatened.to_parquet(bronze_parquet_path)
+        df_concatened.to_parquet(f"data/bronze/{datetime.now().date()}.parquet")
 
 
 def _extract(query:str,languague:str,_from:str,_to:str,page:int=None,pageSize:int=100):
@@ -145,12 +143,28 @@ def silver_step():
     Retorna:
     None. O resultado é salvo em um arquivo parquet.
     '''
-    data_bronze_path = "../data/processed/bronze.parquet"
+    bronze_path = "data/bronze"
     data_silver_path = "../data/silver/silver.parquet"
     
-    df_bronze = pd.read_parquet(data_bronze_path)
-    df_silver = df_bronze.copy()
+    # Lista todos os arquivos no diretório de bronze
+    list_of_files = os.listdir(bronze_path)
     
+    # Filtra apenas os arquivos parquet
+    list_of_parquet_files = [file for file in list_of_files if file.endswith('.parquet')]
+    
+    # Se houver algum arquivo parquet
+    if list_of_parquet_files:
+        # Encontra o arquivo mais recente baseado na data de modificação
+        latest_file = max(list_of_parquet_files, key=lambda x: os.path.getmtime(os.path.join(bronze_path, x)))
+        
+        # Caminho completo para o arquivo mais recente
+        latest_file_path = os.path.join(bronze_path, latest_file)
+        
+        # Lê o arquivo mais recente como DataFrame
+        df_silver = pd.read_parquet(latest_file_path)
+    
+    #Remove as linhas com noticias que possivelmente foram deletadas pelo author ou API
+    df_silver = df_silver.loc[df_latest['title'] != "[Removed]"]
     
     #tratando a coluna 'author'
     authorNoneOrNull = (df_silver['author'].isna() ) 
@@ -163,7 +177,7 @@ def silver_step():
     df_silver['day'] = df_silver['publishedAt'].dt.day
     
     df_silver['publishedAt'] = df_silver['publishedAt'].dt.date
-   
+
     
     
     #tratando a coluna source. Redistribuindo os dados
